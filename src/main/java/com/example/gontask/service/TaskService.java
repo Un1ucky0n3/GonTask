@@ -11,6 +11,7 @@ import com.example.gontask.exception.ResourceNotFoundException;
 import com.example.gontask.repository.EmployeeRepository;
 import com.example.gontask.repository.ManagerRepository;
 import com.example.gontask.repository.TaskRepository;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -34,16 +35,19 @@ public class TaskService {
 
     public TaskResponse createTask(
             CreateTaskRequest request,
-            Long managerId
+            Authentication authentication
     ) {
+
+        String email = authentication.getName();
+
+        Manager manager = managerRepository.findByAccountEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Manager not found")
+                );
+
         Employee employee = employeeRepository.findById(request.getEmployeeId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Employee not found")
-                );
-
-        Manager manager = managerRepository.findById(managerId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Manager not found")
                 );
 
         Task task = new Task(
@@ -60,6 +64,7 @@ public class TaskService {
     }
 
     public List<TaskResponse> getAllTasks() {
+
         return taskRepository.findAll()
                 .stream()
                 .map(this::toResponse)
@@ -67,6 +72,7 @@ public class TaskService {
     }
 
     public TaskResponse getTaskById(Long id) {
+
         Task task = taskRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Task not found")
@@ -79,6 +85,7 @@ public class TaskService {
             Long id,
             UpdateTaskRequest request
     ) {
+
         Task task = taskRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Task not found")
@@ -91,9 +98,12 @@ public class TaskService {
 
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
-        task.setStatus(request.getStatus());
         task.setEmployee(employee);
         task.setDueDate(request.getDueDate());
+
+        if (request.getStatus() != null) {
+            task.setStatus(request.getStatus());
+        }
 
         Task updatedTask = taskRepository.save(task);
 
@@ -104,6 +114,7 @@ public class TaskService {
             Long id,
             UpdateTaskStatusRequest request
     ) {
+
         Task task = taskRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Task not found")
@@ -117,32 +128,33 @@ public class TaskService {
     }
 
     public void deleteTask(Long id) {
-        if (!taskRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Task not found");
-        }
 
-        taskRepository.deleteById(id);
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Task not found")
+                );
+
+        taskRepository.delete(task);
     }
 
     private TaskResponse toResponse(Task task) {
 
-        Employee employee = task.getEmployee();
-        Manager manager = task.getManager();
-
         String employeeName =
-                employee.getFirstName() + " " + employee.getLastName();
+                task.getEmployee().getFirstName() + " "
+                        + task.getEmployee().getLastName();
 
         String managerName =
-                manager.getFirstName() + " " + manager.getLastName();
+                task.getManager().getFirstName() + " "
+                        + task.getManager().getLastName();
 
         return new TaskResponse(
                 task.getId(),
                 task.getTitle(),
                 task.getDescription(),
                 task.getStatus(),
-                employee.getId(),
+                task.getEmployee().getId(),
                 employeeName,
-                manager.getId(),
+                task.getManager().getId(),
                 managerName,
                 task.getCreatedAt(),
                 task.getDueDate()

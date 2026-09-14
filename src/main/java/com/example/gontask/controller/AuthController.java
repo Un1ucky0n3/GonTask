@@ -2,6 +2,7 @@ package com.example.gontask.controller;
 
 import com.example.gontask.dto.auth.LoginRequest;
 import com.example.gontask.dto.auth.LoginResponse;
+import com.example.gontask.dto.auth.RegisterManagerRequest;
 import com.example.gontask.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -21,5 +22,11 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request
     ) {
         return authService.login(request);
+    }
+    @PostMapping("/register/manager")
+    public void registerManager(
+            @Valid @RequestBody RegisterManagerRequest request
+    ) {
+        authService.registerManager(request);
     }
 }

@@ -6,6 +6,8 @@ import com.example.gontask.dto.task.UpdateTaskRequest;
 import com.example.gontask.dto.task.UpdateTaskStatusRequest;
 import com.example.gontask.service.TaskService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,11 +23,12 @@ public class TaskController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('MANAGER')")
     public TaskResponse createTask(
             @Valid @RequestBody CreateTaskRequest request,
-            @RequestParam Long managerId
+            Authentication authentication
     ) {
-        return taskService.createTask(request, managerId);
+        return taskService.createTask(request, authentication);
     }
 
     @GetMapping
@@ -41,13 +44,16 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('MANAGER')")
     public TaskResponse updateTask(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTaskRequest request
     ) {
         return taskService.updateTask(id, request);
     }
+
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('EMPLOYEE')")
     public TaskResponse updateTaskStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTaskStatusRequest request
@@ -56,6 +62,7 @@ public class TaskController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('MANAGER')")
     public void deleteTask(
             @PathVariable Long id
     ) {
