@@ -24,7 +24,7 @@ public class Account {
     }
 
     public Account(String email, String password, Role role) {
-        this.email = email;
+        this.email = normalizeEmail(email);
         this.password = password;
         this.role = role;
     }
@@ -46,7 +46,7 @@ public class Account {
     }
 
     public void setEmail(String email) {
-        this.email = email;
+        this.email = normalizeEmail(email);
     }
 
     public void setPassword(String password) {
@@ -55,6 +55,10 @@ public class Account {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public static String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     public enum Role {

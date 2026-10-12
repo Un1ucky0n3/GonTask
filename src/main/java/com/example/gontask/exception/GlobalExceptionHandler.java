@@ -1,10 +1,14 @@
 package com.example.gontask.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 
@@ -67,6 +71,49 @@ public class GlobalExceptionHandler {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 message
+        );
+    }
+
+    // Thrown by @PreAuthorize when the role is wrong
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(
+            AccessDeniedException exception
+    ) {
+        return buildResponse(
+                HttpStatus.FORBIDDEN,
+                "Access denied"
+        );
+    }
+
+    // Malformed JSON, unknown enum value in the body, bad date format, etc.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(
+            HttpMessageNotReadableException exception
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Malformed or invalid request body"
+        );
+    }
+
+    // e.g. /api/tasks/abc or /api/tasks?status=NOPE
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException exception
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Invalid value for parameter '" + exception.getName() + "'"
+        );
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(
+            DataIntegrityViolationException exception
+    ) {
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "Request conflicts with existing data"
         );
     }
 

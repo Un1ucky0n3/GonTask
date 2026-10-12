@@ -5,6 +5,7 @@ import com.example.gontask.dto.auth.LoginResponse;
 import com.example.gontask.dto.auth.RegisterManagerRequest;
 import com.example.gontask.service.AuthService;
 import jakarta.validation.Valid;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -23,10 +24,12 @@ public class AuthController {
     ) {
         return authService.login(request);
     }
+
     @PostMapping("/register/manager")
     public void registerManager(
-            @Valid @RequestBody RegisterManagerRequest request
+            @Valid @RequestBody RegisterManagerRequest request,
+            Authentication authentication
     ) {
-        authService.registerManager(request);
+        authService.registerManager(request, authentication);
     }
 }

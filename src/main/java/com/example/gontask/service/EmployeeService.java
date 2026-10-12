@@ -1,6 +1,7 @@
 package com.example.gontask.service;
 
 import com.example.gontask.dto.employee.CreateEmployeeRequest;
+import com.example.gontask.dto.employee.EmployeeResponse;
 import com.example.gontask.entity.Account;
 import com.example.gontask.entity.Employee;
 import com.example.gontask.exception.BadRequestException;
@@ -9,7 +10,7 @@ import com.example.gontask.repository.EmployeeRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.gontask.dto.employee.EmployeeResponse;
+
 import java.util.List;
 
 @Service
@@ -28,26 +29,21 @@ public class EmployeeService {
         this.employeeRepository = employeeRepository;
         this.passwordEncoder = passwordEncoder;
     }
-    private EmployeeResponse toResponse(Employee employee) {
-        return new EmployeeResponse(
-                employee.getId(),
-                employee.getAccount().getId(),
-                employee.getAccount().getEmail(),
-                employee.getFirstName(),
-                employee.getLastName()
-        );
-    }
+
+    @Transactional(readOnly = true)
     public List<EmployeeResponse> getAllEmployees() {
         return employeeRepository.findAll()
                 .stream()
-                .map(this::toResponse)
+                .map(EmployeeResponse::from)
                 .toList();
     }
 
     @Transactional
     public void createEmployee(CreateEmployeeRequest request) {
 
-        if (accountRepository.existsByEmail(request.getEmail())) {
+        String email = Account.normalizeEmail(request.getEmail());
+
+        if (accountRepository.existsByEmail(email)) {
             throw new BadRequestException("Email is already registered");
         }
 
@@ -55,7 +51,7 @@ public class EmployeeService {
                 passwordEncoder.encode(request.getPassword());
 
         Account account = new Account(
-                request.getEmail(),
+                email,
                 encodedPassword,
                 Account.Role.EMPLOYEE
         );
@@ -70,5 +66,4 @@ public class EmployeeService {
 
         employeeRepository.save(employee);
     }
-
 }

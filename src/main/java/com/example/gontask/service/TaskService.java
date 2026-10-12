@@ -7,16 +7,19 @@ import com.example.gontask.dto.task.UpdateTaskStatusRequest;
 import com.example.gontask.entity.Employee;
 import com.example.gontask.entity.Manager;
 import com.example.gontask.entity.Task;
+import com.example.gontask.exception.ForbiddenException;
 import com.example.gontask.exception.ResourceNotFoundException;
 import com.example.gontask.repository.EmployeeRepository;
 import com.example.gontask.repository.ManagerRepository;
 import com.example.gontask.repository.TaskRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Transactional
 public class TaskService {
 
     private final TaskRepository taskRepository;
@@ -45,10 +48,7 @@ public class TaskService {
                         new ResourceNotFoundException("Manager not found")
                 );
 
-        Employee employee = employeeRepository.findById(request.getEmployeeId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Employee not found")
-                );
+        Employee employee = findEmployee(request.getEmployeeId());
 
         Task task = new Task(
                 request.getTitle(),
@@ -58,43 +58,75 @@ public class TaskService {
                 request.getDueDate()
         );
 
-        Task savedTask = taskRepository.save(task);
-
-        return toResponse(savedTask);
+        return toResponse(taskRepository.save(task));
     }
 
-    public List<TaskResponse> getAllTasks() {
+    /**
+     * Managers see the tasks they created; employees see tasks assigned to them.
+     * Optional status filter.
+     */
+    @Transactional(readOnly = true)
+    public List<TaskResponse> getTasks(
+            Task.Status status,
+            Authentication authentication
+    ) {
 
-        return taskRepository.findAll()
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        String email = authentication.getName();
+        boolean manager = hasRole(authentication, "MANAGER");
+
+        List<Task> tasks;
+
+        if (manager) {
+            tasks = (status == null)
+                    ? taskRepository
+                    .findByManagerAccountEmailOrderByCreatedAtDesc(email)
+                    : taskRepository
+                    .findByManagerAccountEmailAndStatusOrderByCreatedAtDesc(
+                            email, status
+                    );
+        } else {
+            tasks = (status == null)
+                    ? taskRepository
+                    .findByEmployeeAccountEmailOrderByCreatedAtDesc(email)
+                    : taskRepository
+                    .findByEmployeeAccountEmailAndStatusOrderByCreatedAtDesc(
+                            email, status
+                    );
+        }
+
+        return tasks.stream().map(this::toResponse).toList();
     }
 
-    public TaskResponse getTaskById(Long id) {
+    @Transactional(readOnly = true)
+    public TaskResponse getTaskById(Long id, Authentication authentication) {
 
-        Task task = taskRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Task not found")
-                );
+        Task task = findTask(id);
+
+        if (!isTaskManager(task, authentication)
+                && !isTaskAssignee(task, authentication)) {
+            throw new ForbiddenException(
+                    "You do not have access to this task"
+            );
+        }
 
         return toResponse(task);
     }
 
     public TaskResponse updateTask(
             Long id,
-            UpdateTaskRequest request
+            UpdateTaskRequest request,
+            Authentication authentication
     ) {
 
-        Task task = taskRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Task not found")
-                );
+        Task task = findTask(id);
 
-        Employee employee = employeeRepository.findById(request.getEmployeeId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Employee not found")
-                );
+        if (!isTaskManager(task, authentication)) {
+            throw new ForbiddenException(
+                    "Only the manager who created this task can edit it"
+            );
+        }
+
+        Employee employee = findEmployee(request.getEmployeeId());
 
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
@@ -105,36 +137,71 @@ public class TaskService {
             task.setStatus(request.getStatus());
         }
 
-        Task updatedTask = taskRepository.save(task);
-
-        return toResponse(updatedTask);
+        return toResponse(taskRepository.save(task));
     }
 
     public TaskResponse updateTaskStatus(
             Long id,
-            UpdateTaskStatusRequest request
+            UpdateTaskStatusRequest request,
+            Authentication authentication
     ) {
 
-        Task task = taskRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Task not found")
-                );
+        Task task = findTask(id);
+
+        if (!isTaskAssignee(task, authentication)) {
+            throw new ForbiddenException(
+                    "Only the assigned employee can change this task's status"
+            );
+        }
 
         task.setStatus(request.getStatus());
 
-        Task updatedTask = taskRepository.save(task);
-
-        return toResponse(updatedTask);
+        return toResponse(taskRepository.save(task));
     }
 
-    public void deleteTask(Long id) {
+    public void deleteTask(Long id, Authentication authentication) {
 
-        Task task = taskRepository.findById(id)
+        Task task = findTask(id);
+
+        if (!isTaskManager(task, authentication)) {
+            throw new ForbiddenException(
+                    "Only the manager who created this task can delete it"
+            );
+        }
+
+        taskRepository.delete(task);
+    }
+
+    // ---------- helpers ----------
+
+    private Task findTask(Long id) {
+        return taskRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Task not found")
                 );
+    }
 
-        taskRepository.delete(task);
+    private Employee findEmployee(Long id) {
+        return employeeRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Employee not found")
+                );
+    }
+
+    private boolean isTaskManager(Task task, Authentication authentication) {
+        return task.getManager().getAccount().getEmail()
+                .equalsIgnoreCase(authentication.getName());
+    }
+
+    private boolean isTaskAssignee(Task task, Authentication authentication) {
+        return task.getEmployee().getAccount().getEmail()
+                .equalsIgnoreCase(authentication.getName());
+    }
+
+    private boolean hasRole(Authentication authentication, String role) {
+        return authentication.getAuthorities().stream().anyMatch(
+                authority -> authority.getAuthority().equals("ROLE_" + role)
+        );
     }
 
     private TaskResponse toResponse(Task task) {

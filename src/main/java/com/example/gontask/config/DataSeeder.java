@@ -10,6 +10,7 @@ import com.example.gontask.repository.EmployeeRepository;
 import com.example.gontask.repository.ManagerRepository;
 import com.example.gontask.repository.EmployeeGroupRepository;
 import com.example.gontask.repository.TaskRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +26,7 @@ public class DataSeeder implements CommandLineRunner {
     private final EmployeeGroupRepository employeeGroupRepository;
     private final TaskRepository taskRepository;
     private final PasswordEncoder passwordEncoder;
+    private final boolean seedEnabled;
 
     public DataSeeder(
             AccountRepository accountRepository,
@@ -32,7 +34,8 @@ public class DataSeeder implements CommandLineRunner {
             ManagerRepository managerRepository,
             EmployeeGroupRepository employeeGroupRepository,
             TaskRepository taskRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            @Value("${app.seed.enabled:false}") boolean seedEnabled
     ) {
         this.accountRepository = accountRepository;
         this.employeeRepository = employeeRepository;
@@ -40,10 +43,16 @@ public class DataSeeder implements CommandLineRunner {
         this.employeeGroupRepository = employeeGroupRepository;
         this.taskRepository = taskRepository;
         this.passwordEncoder = passwordEncoder;
+        this.seedEnabled = seedEnabled;
     }
 
     @Override
     public void run(String... args) {
+
+        // Demo data is for local development only (set SEED_DATA=true in .env)
+        if (!seedEnabled) {
+            return;
+        }
 
         // Prevent creating duplicate data every time the app starts
         if (accountRepository.count() > 0) {

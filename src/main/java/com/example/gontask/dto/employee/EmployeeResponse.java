@@ -1,5 +1,7 @@
 package com.example.gontask.dto.employee;
 
+import com.example.gontask.entity.Employee;
+
 public class EmployeeResponse {
 
     private Long id;
@@ -23,6 +25,16 @@ public class EmployeeResponse {
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
+    }
+
+    public static EmployeeResponse from(Employee employee) {
+        return new EmployeeResponse(
+                employee.getId(),
+                employee.getAccount().getId(),
+                employee.getAccount().getEmail(),
+                employee.getFirstName(),
+                employee.getLastName()
+        );
     }
 
     public Long getId() {
